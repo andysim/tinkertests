@@ -73,11 +73,14 @@ def run_tinker(commands, outfile, args):
     with open(outfile, 'w') as fp:
         process = subprocess.Popen(mycmd, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
         stdout,stderr = process.communicate()
+        # Python 3 returns a byte stream, so we convert here, just in case
+        stdout = stdout.decode(sys.stdout.encoding)
+        stderr = stderr.decode(sys.stdout.encoding)
         fp.write(stdout)
         fp.write(stderr + "\n")
     if process.returncode:
         raise RuntimeError("Command\n\n\t%s\n\nFailed.  See %s for details." % (" ".join(commands), outfile))
-    return stdout.split('\n')
+    return stdout.splitlines()
 
 
 def parse_keywords(keyfile):
@@ -125,7 +128,7 @@ def validate(refvals, outvals, keywords, args):
         except KeyError:
             raise Exception("Comparison for %s is not supported." % quantity)
         if refvals[quantity].keys() != outvals[quantity].keys():
-                raise Exception("Different keys detected for %s" % quantity)
+            raise Exception("Different keys detected for %s" % quantity)
         for component in refvals[quantity].keys():
             out = outvals[quantity][component]
             ref = refvals[quantity][component]
@@ -149,28 +152,75 @@ def parse_testgrad(out):
     agradre = re.compile(r' Anlyt\s+\d+\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)\s+(?:-?\d+\.\d+)')
     # Numer       1       0.40103733      0.43512325      0.35325000      0.68916525
     ngradre = re.compile(r' Numer\s+\d+\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)\s+(?:-?\d+\.\d+)')
+    # This is a tough one to compile, but we're going to use it to parse out stuff like
+    # Potential Energy Breakdown by Individual Components :
+    #
+    #  Energy       EB              EA              EBA             EUB
+    #  Terms        EAA             EOPB            EOPD            EID
+    #               EIT             ET              EPT             EBT
+    #               EAT             ETT             EV              EC
+    #               ECD             ED              EM              EP
+    #               ER              ES              ELF             EG
+    #               EX
+    #
+    #           39.64034584    206.70961139      0.00000000     -4.31167395
+    #            0.00000000      0.00000000      0.00000000      0.00000000
+    #            0.00000000      0.00000000      0.00000000      0.00000000
+    #            0.00000000      0.00000000     -0.16604375      0.00000000
+    #            0.00000000      0.00000000     -0.21064571     -0.31418519
+    #            0.00000000      0.00000000      0.00000000      0.00000000
+    #            0.00000000
+    #
+    eheaderre = re.compile(r' Potential Energy Breakdown by Individual Components :\n?')
+    elabellinere = re.compile(r'  (Energy|Terms)?(\s+E[A-Z]+)+\n?')
+    evaluelinere = re.compile(r'(\s+(-?\d+\.\d+))+\n?')
+    elabelre = re.compile(r'E[A-Z]+')
+    evaluere = re.compile(r'-?\d+\.\d+')
+    def parse_energy_terms(out):
+        parsed_some_values = False
+        labels = []
+        values = []
+        for line in out:
+            # Look for labels
+            match = elabellinere.match(line)
+            if match:
+                labels.extend(elabelre.findall(line))
+                continue
+            # Look for numbers
+            match = evaluelinere.match(line)
+            if match:
+                values.extend(map(float, evaluere.findall(line)))
+                parsed_some_values = True
+                continue
+            # The first blank line after the values signals the end for us
+            if not line.strip() and parsed_some_values:
+                return zip(labels, values)
+
     results = {}
     energy = {}
     gradient = {}
     agrad = []
     ngrad = []
-    for line in out:
+    elabs = []
+    evals = []
+    for n,line in enumerate(out):
         # Total potential energy
         matches = totpotre.match(line)
+        if matches: energy['Total Potential'] = [float(matches.group(1))]
+        # Energy components
+        matches = eheaderre.match(line)
         if matches:
-            energy['Total Potential'] = [float(matches.group(1))]
-        matches = ngradre.match(line)
+            for l,v in parse_energy_terms(out[n:]):
+                energy[l] = [v]
         # Analytic gradient
-        if matches:
-            ngrad.extend(map(float, matches.groups(1)))
+        matches = ngradre.match(line)
+        if matches: ngrad.extend(map(float, matches.groups(1)))
         # Numerical gradient
         matches = agradre.match(line)
-        if matches:
-            agrad.extend(map(float, matches.groups(1)))
-    if agrad:
-        gradient['Analytic'] = agrad
-    if ngrad:
-        gradient['Numerical'] = ngrad
+        if matches: agrad.extend(map(float, matches.groups(1)))
+
+    if agrad: gradient['Analytic'] = agrad
+    if ngrad: gradient['Numerical'] = ngrad
     results['energy'] = energy
     results['gradient'] = gradient
     return results
@@ -184,6 +234,37 @@ def check_results(command, out, ref, keywords, args):
     else:
         raise Exception("No handler defined to check %s yet!" % command[0])
     return validate(refvals, outvals, keywords, args)
+
+
+def run_testcase(testcase):
+    """ Runs all steps needed for a single test case """
+    reffile = testcase + '.ref'
+    outfile = testcase + '.out'
+
+    with open('%s.key'%testcase, 'r') as fp:
+        keywords = parse_keywords(fp)
+
+    if args.labels and testcase not in args.labels:
+        if args.verbose:
+            print("Specified label not found: moving on")
+
+    if args.makerefs:
+        # Just make the reference outputs; no comparison
+        print("\tUpdating reference output for %s" % testcase)
+        run_tinker(keywords['runcommand'], reffile, args)
+    else:
+        # Run tests and compare to reference outputs
+        if args.verbose:
+            print("Working on %s...\n" % testcase)
+
+        output = run_tinker(keywords['runcommand'], outfile, args)
+        if check_results(keywords['runcommand'], output, open(reffile).readlines(), keywords, args):
+            line = ' {0:.<86}FAILED'.format(keywords['description'])
+            print(make_red(line))
+            failures.append(testcase)
+        else:
+            line = ' {0:.<86}PASSED'.format(keywords['description'])
+            print(line)
 
 
 #
@@ -211,36 +292,6 @@ try:
         print("\t#  only be doing this with a reliable version of Tinker.  #")
         print("\t###########################################################")
 
-
-    def run_testcase(testcase):
-        """ Runs all steps needed for a single test case """
-        reffile = testcase + '.ref'
-        outfile = testcase + '.out'
-
-        with open('%s.key'%testcase, 'r') as fp:
-            keywords = parse_keywords(fp)
-
-        if args.labels and testcase not in args.labels:
-            if args.verbose:
-                print("Specified label not found: moving on")
-
-        if args.makerefs:
-            # Just make the reference outputs; no comparison
-            print("\tUpdating reference output for %s" % testcase)
-            run_tinker(keywords['runcommand'], reffile, args)
-        else:
-            # Run tests and compare to reference outputs
-            if args.verbose:
-                print("Working on %s...\n" % testcase)
-
-            output = run_tinker(keywords['runcommand'], outfile, args)
-            if check_results(keywords['runcommand'], output, open(reffile).readlines(), keywords, args):
-                line = ' {0:.<86}FAILED'.format(keywords['description'])
-                print(make_red(line))
-                failures.append(testcase)
-            else:
-                line = ' {0:.<86}PASSED'.format(keywords['description'])
-                print(line)
 
     # Set up a pool of workers to crank out the work in parallel
     pool=ThreadPool(args.numprocs)
