@@ -226,11 +226,85 @@ def parse_testgrad(out):
     return results
 
 
+def parse_analyze(out):
+    floatre = re.compile(r'-?\d+\.\d+')
+    results = {}
+    energy = {}
+    gradient = {}
+    geometry = {}
+    for n,line in enumerate(out):
+        sl = line.split()
+        # dE/dV (Virial-based) :                  0.068212 Kcal/mole/A**3
+        if line.startswith(" dE/dV (Virial-based) :"): gradient['Analytic Virial'] = [ float(sl[3]) ]
+        # dE/dV (Finite Diff) :                   0.068208 Kcal/mole/A**3
+        if line.startswith(" dE/dV (Finite Diff) :"): gradient['Numerical Virial'] = [ float(sl[4]) ]
+        # Pressure (Analytical, 0 K) :           -4677.200 Atmospheres
+        if line.startswith(" Pressure (Analytical, 0 K) :"): gradient['Analytical Pressure'] = [ float(sl[5]) ]
+        # Pressure (Numerical, 0 K) :            -4676.892 Atmospheres
+        if line.startswith(" Pressure (Numerical, 0 K) :"): gradient['Numerical Pressure'] = [ float(sl[5]) ]
+        # Bond Stretching                        6349.1257          16569
+        if line.startswith(" Bond Stretching                  "): energy['Bond Stretching'] = [ float(sl[2]) ]
+        # Angle Bending                          3749.0542          11584
+        if line.startswith(" Angle Bending                    "): energy['Angle Bending'] = [ float(sl[2]) ]
+        # Stretch-Bend                            -19.7897           4031
+        if line.startswith(" Stretch-Bend                     "): energy['Stretch-Bend'] = [ float(sl[1]) ]
+        # Urey-Bradley                            668.1058           7023
+        if line.startswith(" Urey-Bradley                     "): energy['Urey-Bradley'] = [ float(sl[1]) ]
+        # Out-of-Plane Bend                       110.8436           1566
+        if line.startswith(" Out-of-Plane Bend                "): energy['Out-of-Plane Bend'] = [ float(sl[2]) ]
+        # Torsional Angle                         433.6959           6701
+        if line.startswith(" Torsional Angle                  "): energy['Torsional Angle'] = [ float(sl[2]) ]
+        # Pi-Orbital Torsion                       58.7507            292
+        if line.startswith(" Pi-Orbital Torsion               "): energy['Pi-Orbital Torsion'] = [ float(sl[2]) ]
+        # Torsion-Torsion                         -41.9998            147
+        if line.startswith(" Torsion-Torsion                  "): energy['Torsion-Torsion'] = [ float(sl[1]) ]
+        # Van der Waals                         31548.0594        8304545
+        if line.startswith(" Van der Waals                    "): energy['Van der Waals'] = [ float(sl[3]) ]
+        # Atomic Multipoles                    -78760.2884        1667721
+        if line.startswith(" Atomic Multipoles                "): energy['Atomic Multipoles'] = [ float(sl[2]) ]
+        # Polarization                         -31796.4657        1667721
+        if line.startswith(" Polarization                     "): energy['Polarization'] = [ float(sl[1]) ]
+        # Internal Virial Tensor :               17258.896     115.886    -307.770
+        #                                          115.886   16300.180     778.428
+        #                                         -307.770     778.428   15756.319
+        if line.startswith(" Internal Virial Tensor :"):
+            gradient['Virial Tensor'] = map(float, floatre.findall("".join(out[n:n+3])))
+        # Dipole Moment Magnitude :               1244.807 Debyes
+        if line.startswith(" Dipole Moment Magnitude :"):  energy['Dipole Norm'] = [ float(sl[4]) ]
+        # Dipole X,Y,Z-Components :               1123.325     247.506     475.843
+        if line.startswith(" Dipole X,Y,Z-Components :"): energy['Dipole Components'] = map(float, sl[3:6])
+        # Quadrupole Moment Tensor :             -1402.777    3261.667    3912.700
+        #      (Buckinghams)                      3261.667     900.860   12633.678
+        #                                         3912.700   12633.678     501.917
+        if line.startswith(" Quadrupole Moment Tensor :"):
+            energy['Quadrupole Components'] = map(float, floatre.findall("".join(out[n:n+3])))
+        #  Radius of Gyration :                      30.915 Angstroms
+        if line.startswith(" Radius of Gyration :"): geometry['Radius of Gyration'] = [ float(sl[4]) ]
+        # Total Potential Energy :             -67700.9082 Kcal/mole
+        if line.startswith(" Total Potential Energy :"): energy['Total Potential'] = [ float(sl[4]) ]
+    results['energy'] = energy
+    results['gradient'] = gradient
+    results['geometry'] = geometry
+    return results
+
+
 def check_results(command, out, ref, keywords, args):
+    """  The general strategy here is to parse out results into a common data structure, a dict of dict of lists:
+                results[type][name] = [ val(s) ]
+         where type is energy, gradient, coords, etc. (see keys of default_tolerances above); name is
+         the specific quantity being tests, e.g. polarization energy, bonded energy.  This way we can
+         write a very generic validation routine (energies, forces and gradients can be tested the same way)
+         that can obey tolerances provided by the user.  Note that this means energies are provided as a list.
+         By storing the names in the second index, we can print out meaningful messages with verbose on. """
+
     if command[0] == 'testgrad':
         if args.verbose: print("Checking testgrad outputs")
         refvals = parse_testgrad(ref)
         outvals = parse_testgrad(out)
+    elif command[0] == 'analyze':
+        if args.verbose: print("Checking analyze outputs")
+        refvals = parse_analyze(ref)
+        outvals = parse_analyze(out)
     else:
         raise Exception("No handler defined to check %s yet!" % command[0])
     return validate(refvals, outvals, keywords, args)

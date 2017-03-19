@@ -1,0 +1,169 @@
+
+     ######################################################################
+   ##########################################################################
+  ###                                                                      ###
+ ###            TINKER  ---  Software Tools for Molecular Design            ###
+ ##                                                                          ##
+ ##                        Version 7.0   October 2014                        ##
+ ##                                                                          ##
+ ##               Copyright (c)  Jay William Ponder  1990-2014               ##
+ ###                           All Rights Reserved                          ###
+  ###                                                                      ###
+   ##########################################################################
+     ######################################################################
+
+
+ Smooth Particle Mesh Ewald Parameters :
+
+    Ewald Coefficient      Charge Grid Dimensions      B-Spline Order
+
+          0.5446               64    64    64                 5
+
+ Overall System Contents :
+
+ Number of Atoms                            23558
+ Number of Molecules                         7024
+ Total System Mass                    144497.3650
+ System Density                            0.9957
+
+ Periodic Boundary Conditions :
+
+ a-Axis Length                            62.2300
+ b-Axis Length                            62.2300
+ c-Axis Length                            62.2300
+ Alpha Angle                              90.0000
+ Beta Angle                               90.0000
+ Gamma Angle                              90.0000
+ Cell Volume                          240990.2116
+ Lattice Type                          ORTHOGONAL
+
+ Force Field Name :               AMOEBA-BIO-2009
+
+ VDW Function                       BUFFERED-14-7
+ Size Descriptor                            R-MIN
+ Size Unit Type                          DIAMETER
+ Size Combining Rule                   CUBIC-MEAN
+ Well Depth Rule                              HHG
+ VDW Cutoff                               12.0000
+
+ Electrostatics                  ATOMIC MULTIPOLE
+ Electrostatics                    INDUCED DIPOLE
+
+ Particle Mesh Ewald :
+
+ Ewald Coefficient                         0.5446
+ Real-Space Cutoff                         7.0000
+ Grid Dimensions                       64  64  64
+ B-Spline Order                                 5
+ Boundary Condition                       TINFOIL
+
+ Individual Bond Stretching Interactions :
+
+ Type              Atom Names                      Ideal    Actual      Energy
+
+ Bond         1863-C     1865-C                   1.5250    1.6819      5.5121
+ Bond         5178-O     5180-H                   0.9572    1.0705      5.1664
+ Bond         5550-O     5552-H                   0.9572    1.0686      5.0139
+ Bond        21663-O    21665-H                   0.9572    1.0702      5.1383
+
+ Individual Angle Bending Interactions :
+
+ Type                  Atom Names                  Ideal    Actual      Energy
+
+ Angle-IP      328-N      329-C      331-C      109.0000  134.5508      6.3908
+ Angle-IP      585-O      584-C      586-O      134.0000  115.8086      7.4313
+ Angle-IP     1172-N     1173-C     1175-C      109.0000  133.8603      6.1186
+ Angle-IP     1564-O     1563-C     1565-O      134.0000  115.9597      7.2934
+ Angle-IP     1851-O     1850-C     1852-O      134.0000  118.5536      5.1636
+ Angle-IP     2068-N     2069-C     2071-C      109.0000  131.3121      5.1373
+ Angle-IP     2468-O     2467-C     2489-O      134.0000  118.2591      5.3836
+
+ Individual Torsional Angle Interactions :
+
+ Type                         Atom Names                     Angle      Energy
+
+ Torsion       231-N      232-CA     233-C      248-N     -80.4648      3.1486
+ Torsion       342-N      343-CA     344-C      356-N     102.7962      3.3835
+ Torsion       382-C      375-N      376-CA     380-C       5.3011      3.0076
+ Torsion       939-N      940-CA     941-C      953-N     102.8605      3.3824
+ Torsion       972-N      973-CA     974-C      991-N     114.1948      3.0372
+ Torsion       991-N      992-CA     993-C     1010-N     113.6521      3.0597
+ Torsion      1148-N     1149-CA    1150-C     1162-N     105.6326      3.3239
+ Torsion      1345-N     1346-CA    1347-C     1357-N      78.3665      3.0620
+ Torsion      1421-N     1422-CA    1423-C     1438-N      96.9012      3.4451
+ Torsion      1751-N     1752-CA    1753-C     1770-N      91.5951      3.4252
+ Torsion      1842-N     1843-CA    1844-C     1857-N      99.7912      3.4256
+ Torsion      2144-N     2145-CA    2146-C     2155-N      79.7304      3.1195
+ Torsion      2155-N     2156-CA    2157-C     2170-N     107.7441      3.2676
+ Torsion      2268-N     2269-CA    2270-C     2282-N     101.2842      3.4075
+ Torsion      2342-N     2343-CA    2344-C     2353-N     110.3430      3.1849
+ Torsion      2353-N     2354-CA    2355-C     2373-N      98.5142      3.4368
+
+ Individual van der Waals Interactions :
+
+ Type              Atom Names                    Minimum    Actual      Energy
+
+ VDW-Hal      2655-O     3503-H                   3.1214    1.6480     11.3445
+ VDW-Hal      2805-O     4547-H                   3.1214    1.6729     10.2116
+ VDW-Hal      3735-O     6118-H                   3.1214    1.6528     11.1156
+ VDW-Hal      4116-O    21952-H                   3.1214    1.6194     12.8056
+ VDW-Hal      5617-H    12228-O                   3.1214    1.6769     10.0380
+ VDW-Hal      7860-O    17104-H                   3.1214    1.6663     10.4992
+ VDW-Hal      9360-O    14353-H                   3.1214    1.6748     10.1308
+ VDW-Hal     12499-H    22866-O                   3.1214    1.6678     10.4331
+ VDW-Hal     15064-H    21840-O                   3.1214    1.6368     11.8950
+ VDW-Hal     17688-O    23515-H                   3.1214    1.6524     11.1346
+ VDW-Hal     19313-H    19758-O                   3.1214    1.6461     11.4367
+ VDW-Hal     21768-O    22655-H                   3.1214    1.6593     10.8157
+
+ Total Potential Energy :             -67700.9082 Kcal/mole
+
+ Energy Component Breakdown :           Kcal/mole      Interactions
+
+ Bond Stretching                        6349.1257          16569
+ Angle Bending                          3749.0542          11584
+ Stretch-Bend                            -19.7897           4031
+ Urey-Bradley                            668.1058           7023
+ Out-of-Plane Bend                       110.8436           1566
+ Torsional Angle                         433.6959           6701
+ Pi-Orbital Torsion                       58.7507            292
+ Torsion-Torsion                         -41.9998            147
+ Van der Waals                         31548.0594        8304545
+ Atomic Multipoles                    -78760.2884        1667721
+ Polarization                         -31796.4657        1667721
+
+ Total Electric Charge :                -11.00000 Electrons
+
+ Dipole Moment Magnitude :               1244.807 Debyes
+
+ Dipole X,Y,Z-Components :               1123.325     247.506     475.843
+
+ Quadrupole Moment Tensor :             -1402.777    3261.667    3912.700
+      (Buckinghams)                      3261.667     900.860   12633.678
+                                         3912.700   12633.678     501.917
+
+ Principal Axes Quadrupole :           -11960.105   -2952.475   14912.580
+
+ Radius of Gyration :                      30.915 Angstroms
+
+ Center of Mass Coordinates :           -0.072830    0.028432    0.061180
+ Euler Angles (Phi/Theta/Psi) :           -22.465      31.737      44.328
+
+ Moments of Inertia and Principal Axes :
+
+             Moments (amu Ang^2)          X-, Y- and Z-Components of Axes
+
+               90220019.908              0.785932    0.613020    0.080729
+               90515541.578             -0.324974    0.520611   -0.789529
+               91279202.671             -0.526026    0.594281    0.608380
+
+ Internal Virial Tensor :               17258.896     115.886    -307.770
+                                          115.886   16300.180     778.428
+                                         -307.770     778.428   15756.319
+
+ dE/dV (Virial-based) :                  0.068212 Kcal/mole/A**3
+ dE/dV (Finite Diff) :                   0.068208 Kcal/mole/A**3
+
+ Pressure (Analytical, 0 K) :           -4677.200 Atmospheres
+ Pressure (Numerical, 0 K) :            -4676.892 Atmospheres
+
