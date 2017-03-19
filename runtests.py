@@ -318,9 +318,18 @@ def run_testcase(testcase):
     with open('%s.key'%testcase, 'r') as fp:
         keywords = parse_keywords(fp)
 
-    if args.labels and testcase not in args.labels:
-        if args.verbose:
-            print("Specified label not found: moving on")
+    if args.labels:
+        # The user asked to only run a subset; check to see if this test is included
+        skip_this = True
+        for argslabel in args.labels:
+            argslabel = argslabel.lower()
+            if argslabel in keywords['labels']:
+                skip_this = False
+                break
+        if skip_this:
+            if args.verbose:
+                print("Specified label not found, skipping %s" % testcase)
+            return
 
     if args.makerefs:
         # Just make the reference outputs; no comparison
