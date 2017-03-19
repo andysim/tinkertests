@@ -4,6 +4,7 @@ from glob import glob
 import os
 import re
 import subprocess
+from multiprocessing.dummy import Pool as ThreadPool
 import argparse
 import sys
 
@@ -48,14 +49,6 @@ if not args.tinkerdir:
 
 if not os.path.isdir(args.tinkerdir):
     raise Exception("Tinker executable directory not valid: %s doesn't exist." % args.tinkerdir)
-
-#Change directory to the tests
-scriptpath = os.path.dirname(os.path.realpath(__file__))
-testspath = scriptpath + '/tests'
-os.chdir(testspath)
-
-print("Testing binaries located in %s" % args.tinkerdir)
-print("Running from %s\n" % testspath)
 
 
 
@@ -204,10 +197,19 @@ def check_results(command, out, ref, keywords, args):
 # Run the tests
 #
 try:
+    # Change directory to the tests
+    scriptpath = os.path.dirname(os.path.realpath(__file__))
+    testspath = scriptpath + '/tests'
+    os.chdir(testspath)
+
+    # Figure out the list of work
     if args.file:
         testcases = [ os.path.splitext(args.file[0])[0] ]
     else:
         testcases = [ os.path.splitext(testname)[0] for testname in glob('*.key') ]
+
+    print("\n\tTesting binaries located in %s" % args.tinkerdir)
+    print("\tRunning from %s, using %d cores\n" % (testspath, args.numprocs))
 
     failures = []
     if args.makerefs:
@@ -216,7 +218,9 @@ try:
         print("\t#  only be doing this with a reliable version of Tinker.  #")
         print("\t###########################################################")
 
-    for n, testcase in enumerate(sorted(testcases)):
+
+    def run_testcase(testcase):
+        """ Runs all steps needed for a single test case """
         reffile = testcase + '.ref'
         outfile = testcase + '.out'
 
@@ -238,12 +242,18 @@ try:
 
             output = run_tinker(keywords['runcommand'], outfile, args)
             if check_results(keywords['runcommand'], output, open(reffile).readlines(), keywords, args):
-                line = ' {0:3} {1:.<86}FAILED'.format(n+1, keywords['description'])
+                line = ' {0:.<86}FAILED'.format(keywords['description'])
                 print(make_red(line))
                 failures.append(testcase)
             else:
-                line = ' {0:3} {1:.<86}PASSED'.format(n+1, keywords['description'])
+                line = ' {0:.<86}PASSED'.format(keywords['description'])
                 print(line)
+
+    # Set up a pool of workers to crank out the work in parallel
+    pool=ThreadPool(args.numprocs)
+    pool.map(run_testcase, sorted(testcases))
+    pool.close()
+    pool.join()
 except KeyboardInterrupt:
     print("\nTesting interrupted...\n")
     if len(failed):
@@ -252,8 +262,8 @@ except KeyboardInterrupt:
     sys.exit(1)
 
 if len(failures):
-    print("\nThe following tests failed:\n")
+    print("\nThe following %d of %d tests failed:\n" % (len(failures), len(testcases)))
     print("\n".join(failures))
 else:
     if not args.makerefs:
-        print("\n All tests succeeded!\n")
+        print("\n All %d tests succeeded!\n" % len(testcases))
