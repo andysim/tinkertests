@@ -176,21 +176,14 @@ def parse_testgrad(out):
     return results
 
 
-def check_testgrad(out, ref, keywords, args):
-    failed = False
-    refvals = parse_testgrad(ref)
-    outvals = parse_testgrad(out)
-    return validate(refvals, outvals, keywords, args)
-
-
 def check_results(command, out, ref, keywords, args):
-    runcmd = command[0]
-    if runcmd == 'testgrad':
-        if args.verbose:
-            print("Checking testgrad outputs")
-        return check_testgrad(out, ref, keywords, args)
+    if command[0] == 'testgrad':
+        if args.verbose: print("Checking testgrad outputs")
+        refvals = parse_testgrad(ref)
+        outvals = parse_testgrad(out)
     else:
-        raise Exception("No handler defined to check %s yet!" % runcmd)
+        raise Exception("No handler defined to check %s yet!" % command[0])
+    return validate(refvals, outvals, keywords, args)
 
 
 #
