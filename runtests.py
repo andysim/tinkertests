@@ -208,44 +208,52 @@ try:
         testcases = [ os.path.splitext(args.file[0])[0] ]
     else:
         testcases = [ os.path.splitext(testname)[0] for testname in glob('*.key') ]
+
     failures = []
+    if args.makerefs:
+        print("\t###########################################################")
+        print("\t#  WARNING! Reference files will be updated.  You should  #")
+        print("\t#  only be doing this with a reliable version of Tinker.  #")
+        print("\t###########################################################")
+
     for n, testcase in enumerate(sorted(testcases)):
         reffile = testcase + '.ref'
         outfile = testcase + '.out'
+
         with open('%s.key'%testcase, 'r') as fp:
             keywords = parse_keywords(fp)
+
         if args.labels and testcase not in args.labels:
             if args.verbose:
                 print("Specified label not found: moving on")
+
         if args.makerefs:
             # Just make the reference outputs; no comparison
             print("\tUpdating reference output for %s" % testcase)
             run_tinker(keywords['runcommand'], reffile, args)
         else:
+            # Run tests and compare to reference outputs
             if args.verbose:
                 print("Working on %s...\n" % testcase)
-            # Run tests and compare to reference outputs
-            failed = False
+
             output = run_tinker(keywords['runcommand'], outfile, args)
             if check_results(keywords['runcommand'], output, open(reffile).readlines(), keywords, args):
-                failed = True
-            if failed:
                 line = ' {0:3} {1:.<86}FAILED'.format(n+1, keywords['description'])
-                print make_red(line)
+                print(make_red(line))
                 failures.append(testcase)
             else:
                 line = ' {0:3} {1:.<86}PASSED'.format(n+1, keywords['description'])
-                print line
+                print(line)
 except KeyboardInterrupt:
-    print "\nTesting interrupted...\n"
+    print("\nTesting interrupted...\n")
     if len(failed):
-        print "\n The following tests failed:\n"
-        print "\n".join(failures)
+        print("\n The following tests failed:\n")
+        print("\n".join(failures))
     sys.exit(1)
 
 if len(failures):
-    print "\nThe following tests failed:\n"
-    print "\n".join(failures)
+    print("\nThe following tests failed:\n")
+    print("\n".join(failures))
 else:
-    print "\n All tests succeeded!\n"
-
+    if not args.makerefs:
+        print("\n All tests succeeded!\n")
