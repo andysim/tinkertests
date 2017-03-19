@@ -1,0 +1,251 @@
+#!/usr/bin/env python
+
+from glob import glob
+import os
+import re
+import subprocess
+import argparse
+import sys
+
+default_tolerances = {
+    'energy'   : 1e-6,
+    'gradient' : 1e-6,
+    'geometry' : 1e-6,
+}
+
+try:
+    TINKERDIR = os.environ['TINKERDIR']
+except KeyError:
+    TINKERDIR = None
+
+#
+# Parse options
+#
+parser = argparse.ArgumentParser()
+parser.add_argument('-n', '--numprocs',
+                    type=int,
+                    help='The number of tests to run simultaneously.',
+                    default=1)
+parser.add_argument('-l', '--labels',
+                    nargs='*',
+                    help='Ron only tests containing the label(s) specified')
+parser.add_argument('-m', '--makerefs',
+                    action='store_true',
+                    help='Replaces reference files for tests (filtered by labels, if present) instead of testing.')
+parser.add_argument('-f', '--file',
+                    nargs=1,
+                    help='Process only the key file specified in this command.')
+parser.add_argument('-t', '--tinkerdir',
+                    help='The location of the tinker binaries (overrides the default found in $TINKERDIR).',
+                    default=TINKERDIR)
+parser.add_argument('-v', '--verbose',
+                    action='store_true',
+                    help='Provide detailed output.')
+args = parser.parse_args()
+
+if not args.tinkerdir:
+    raise Exception("Tinker executable directory not specied.  Set the TINKERDIR variable, or use the --tinkerdir flag.")
+
+if not os.path.isdir(args.tinkerdir):
+    raise Exception("Tinker executable directory not valid: %s doesn't exist." % args.tinkerdir)
+
+#Change directory to the tests
+scriptpath = os.path.dirname(os.path.realpath(__file__))
+testspath = scriptpath + '/tests'
+os.chdir(testspath)
+
+print("Testing binaries located in %s" % args.tinkerdir)
+print("Running from %s\n" % testspath)
+
+
+
+CSI = "\x1B["
+def make_green(s):
+    return CSI + "32;1m" + s + CSI + "0m"
+
+def make_red(s):
+    return CSI + "31;1m" + s + CSI + "0m"
+
+
+def run_tinker(commands, outfile, args):
+    """ A helper utility to execute commands (specified as a list), writing the output
+        to outfile, and returning the output as a list."""
+
+    if not isinstance(commands, list):
+        raise ValueError("The commands argument to run_tinker should be a list of strings")
+    mycmd = commands[:]
+    mycmd[0] = args.tinkerdir + "/" + mycmd[0]
+    if args.verbose:
+        print("Attempting to run: %s" % " ".join(mycmd))
+    with open(outfile, 'w') as fp:
+        process = subprocess.Popen(mycmd, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+        stdout,stderr = process.communicate()
+        fp.write(stdout)
+        fp.write(stderr + "\n")
+    if process.returncode:
+        raise RuntimeError("Command\n\n\t%s\n\nFailed.  See %s for details." % (" ".join(commands), outfile))
+    return stdout.split('\n')
+
+
+def parse_keywords(keyfile):
+    keywords = { 'tolerance'   : default_tolerances,
+                 'description' : "",
+                 'runcommand'  : "",
+                 'labels'      : []}
+    tolerances = default_tolerances.keys()
+    for line in keyfile:
+        line = line.strip().split()
+        if not line: continue
+        line[0] = line[0].lower()
+        if line[0].startswith('#description'):
+            keywords['description'] = " ".join(line[1:])
+        elif line[0].startswith('#tolerance'):
+            try:
+                if len(line) != 3:
+                    raise Exception()
+                key = line[1]
+                val = float(line[2])
+                if key not in tolerances:
+                    raise Exception()
+                keywords['tolerance'][key] = val
+            except:
+                raise SyntaxError("Bad tolerance argument!  Should be\n\n#tolerance %s value\n\n" % "/".join(tolerances))
+        elif line[0].startswith('#labels'):
+            keywords['labels'] = line[1:]
+        elif line[0].startswith('#runcommand'):
+            keywords['runcommand'] = line[1:]
+
+    if not keywords['runcommand']:
+        raise SyntaxError('#RunCommand not specified.')
+    return keywords
+
+
+def validate(refvals, outvals, keywords, args):
+    if refvals.keys() != outvals.keys():
+        raise Exception("Different keys detected in outputs")
+    failed = False
+    for quantity in refvals.keys():
+        if args.verbose:
+            print("\tChecking %s" % quantity)
+        try:
+            tolerance = keywords['tolerance'][quantity]
+        except KeyError:
+            raise Exception("Comparison for %s is not supported." % quantity)
+        if refvals[quantity].keys() != outvals[quantity].keys():
+                raise Exception("Different keys detected for %s" % quantity)
+        for component in refvals[quantity].keys():
+            out = outvals[quantity][component]
+            ref = refvals[quantity][component]
+            this_failed = False
+            for o,r in zip(out, ref):
+                if abs(o-r) > tolerance:
+                    failed = True
+                    this_failed = True
+            if args.verbose:
+                if this_failed:
+                    print(make_red("\t\t%s failed" % component))
+                else:
+                    print("\t\t%s passed" % component)
+    return failed
+
+
+def parse_testgrad(out):
+    #Total Potential Energy :                 -0.31418519 Kcal/mole
+    totpotre = re.compile(r' Total Potential Energy :\s*(-?\d+\.\d+) Kcal/mole')
+    # Anlyt       1       0.40103733      0.43512325      0.35325000      0.68916525
+    agradre = re.compile(r' Anlyt\s+\d+\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)\s+(?:-?\d+\.\d+)')
+    # Numer       1       0.40103733      0.43512325      0.35325000      0.68916525
+    ngradre = re.compile(r' Numer\s+\d+\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)\s+(?:-?\d+\.\d+)')
+    results = {}
+    energy = {}
+    gradient = {}
+    agrad = []
+    ngrad = []
+    for line in out:
+        # Total potential energy
+        matches = totpotre.match(line)
+        if matches:
+            energy['Total Potential'] = [float(matches.group(1))]
+        matches = ngradre.match(line)
+        # Analytic gradient
+        if matches:
+            ngrad.extend(map(float, matches.groups(1)))
+        # Numerical gradient
+        matches = agradre.match(line)
+        if matches:
+            agrad.extend(map(float, matches.groups(1)))
+    if agrad:
+        gradient['Analytic'] = agrad
+    if ngrad:
+        gradient['Numerical'] = ngrad
+    results['energy'] = energy
+    results['gradient'] = gradient
+    return results
+
+
+def check_testgrad(out, ref, keywords, args):
+    failed = False
+    refvals = parse_testgrad(ref)
+    outvals = parse_testgrad(out)
+    return validate(refvals, outvals, keywords, args)
+
+
+def check_results(command, out, ref, keywords, args):
+    runcmd = command[0]
+    if runcmd == 'testgrad':
+        if args.verbose:
+            print("Checking testgrad outputs")
+        return check_testgrad(out, ref, keywords, args)
+    else:
+        raise Exception("No handler defined to check %s yet!" % runcmd)
+
+
+#
+# Run the tests
+#
+try:
+    if args.file:
+        testcases = [ os.path.splitext(args.file[0])[0] ]
+    else:
+        testcases = [ os.path.splitext(testname)[0] for testname in glob('*.key') ]
+    failures = []
+    for n, testcase in enumerate(sorted(testcases)):
+        reffile = testcase + '.ref'
+        outfile = testcase + '.out'
+        with open('%s.key'%testcase, 'r') as fp:
+            keywords = parse_keywords(fp)
+        if args.labels and testcase not in args.labels:
+            if args.verbose:
+                print("Specified label not found: moving on")
+        if args.makerefs:
+            # Just make the reference outputs; no comparison
+            print("\tUpdating reference output for %s" % testcase)
+            run_tinker(keywords['runcommand'], reffile, args)
+        else:
+            if args.verbose:
+                print("Working on %s...\n" % testcase)
+            # Run tests and compare to reference outputs
+            failed = False
+            output = run_tinker(keywords['runcommand'], outfile, args)
+            if check_results(keywords['runcommand'], output, open(reffile).readlines(), keywords, args):
+                failed = True
+            if failed:
+                line = ' {0:3} {1:.<86}FAILED'.format(n+1, keywords['description'])
+                print make_red(line)
+                failures.append(testcase)
+            else:
+                line = ' {0:3} {1:.<86}PASSED'.format(n+1, keywords['description'])
+                print line
+except KeyboardInterrupt:
+    print "\nTesting interrupted...\n"
+    if len(failed):
+        print "\n The following tests failed:\n"
+        print "\n".join(failures)
+    sys.exit(1)
+
+if len(failures):
+    print "\nThe following tests failed:\n"
+    print "\n".join(failures)
+else:
+    print "\n All tests succeeded!\n"
+

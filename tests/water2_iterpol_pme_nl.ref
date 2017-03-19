@@ -1,0 +1,26 @@
+
+     ######################################################################
+   ##########################################################################
+  ###                                                                      ###
+ ###            TINKER  ---  Software Tools for Molecular Design            ###
+ ##                                                                          ##
+ ##                        Version 7.0   October 2014                        ##
+ ##                                                                          ##
+ ##               Copyright (c)  Jay William Ponder  1990-2014               ##
+ ###                           All Rights Reserved                          ###
+  ###                                                                      ###
+   ##########################################################################
+     ######################################################################
+
+
+ Smooth Particle Mesh Ewald Parameters :
+
+    Ewald Coefficient      Charge Grid Dimensions      B-Spline Order
+
+          0.3000               32    32    32                 6
+
+ VLIST  --  Pairwise Neighbor List cannot be used with Replicas
+
+ TINKER is Unable to Continue; Terminating the Current Calculation
+
+
